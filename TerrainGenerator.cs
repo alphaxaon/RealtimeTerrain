@@ -25,6 +25,7 @@ public class TerrainGenerator : MonoBehaviour
 	public float persistance;
 	public float lacunarity = 2;
 	public int seed = 0;
+    public Vector2 offset = new Vector2(0, 0);
     [Range(0, 1)]
     public bool showStatus = false;
 
@@ -38,7 +39,7 @@ public class TerrainGenerator : MonoBehaviour
 		if (!terrain) {
             status = "Generate failed. No Terrain Component attached to this GameObject.";
 			Debug.Log (status);
-            return false;
+            yield break;
 		}
 
         // Set terrain size
@@ -48,7 +49,7 @@ public class TerrainGenerator : MonoBehaviour
         yield return null;
 
         // Reset
-        terrain_data.SetHeights(0, 0, new float[terrain_data.heightmapWidth, terrain_data.heightmapHeight]);
+        terrain_data.SetHeights(0, 0, new float[terrain_data.heightmapResolution, terrain_data.heightmapResolution]);
         terrain_data.treeInstances = new TreeInstance[0];
         terrain_data.SetDetailLayer(0, 0, 0, new int[terrain_data.detailWidth, terrain_data.detailHeight]);
         //terrain_data.SetAlphamaps(0, 0, new float[terrain_data.alphamapWidth, terrain_data.alphamapHeight, terrain_data.alphamapLayers]);
@@ -76,18 +77,18 @@ public class TerrainGenerator : MonoBehaviour
     **/
 	public IEnumerator GenerateShape(TerrainData terrain_data) 
     {
-        float[,] noiseMap = Noise.GenerateMap(terrain_data.heightmapWidth, terrain_data.heightmapHeight, seed, noiseScale, octaves, persistance, lacunarity, offset);
-        float[,] heights = terrain_data.GetHeights(0, 0, terrain_data.heightmapWidth, terrain_data.heightmapHeight);
+        float[,] noiseMap = Noise.GenerateMap(terrain_data.heightmapResolution, terrain_data.heightmapResolution, seed, noiseScale, octaves, persistance, lacunarity, offset);
+        float[,] heights = terrain_data.GetHeights(0, 0, terrain_data.heightmapResolution, terrain_data.heightmapResolution);
         int t = 20;
 
-        for (int y = 0; y < terrain_data.heightmapHeight; y++) {
-            for (int x = 0; x < terrain_data.heightmapWidth; x++) {
+        for (int y = 0; y < terrain_data.heightmapResolution; y++) {
+            for (int x = 0; x < terrain_data.heightmapResolution; x++) {
                 float currentHeight = noiseMap[x, y];
                 heights[y, x] = currentHeight;
             }
             t--;
             if (t <= 0) {
-                status = "Terraforming land " + y + "/" + terrain_data.heightmapHeight;
+                status = "Terraforming land " + y + "/" + terrain_data.heightmapResolution;
                 terrain_data.SetHeights(0, 0, heights);
                 t = 20;
                 yield return null;
@@ -103,12 +104,12 @@ public class TerrainGenerator : MonoBehaviour
     **/
 	public IEnumerator GenerateCanyons(TerrainData terrain_data) 
     {
-		float[,] noiseMap = Noise.GenerateMap (terrain_data.heightmapWidth, terrain_data.heightmapHeight, seed + 1, noiseScale/2, octaves, persistance, lacunarity + 1, offset);
-		float[,] heights = terrain_data.GetHeights (0, 0, terrain_data.heightmapWidth, terrain_data.heightmapHeight);
+		float[,] noiseMap = Noise.GenerateMap (terrain_data.heightmapResolution, terrain_data.heightmapResolution, seed + 1, noiseScale/2, octaves, persistance, lacunarity + 1, offset);
+		float[,] heights = terrain_data.GetHeights (0, 0, terrain_data.heightmapResolution, terrain_data.heightmapResolution);
         int t = 20;
 
-		for (int y = 0; y < terrain_data.heightmapHeight; y++) {
-			for (int x = 0; x < terrain_data.heightmapWidth; x++) {
+		for (int y = 0; y < terrain_data.heightmapResolution; y++) {
+			for (int x = 0; x < terrain_data.heightmapResolution; x++) {
 				float currentHeight = noiseMap [x, y];
 
 				if (currentHeight < 0.5f)
@@ -117,7 +118,7 @@ public class TerrainGenerator : MonoBehaviour
             t--;
             if (t <= 0)
             {
-                status = "Generating canyons " + y + "/" + terrain_data.heightmapHeight;
+                status = "Generating canyons " + y + "/" + terrain_data.heightmapResolution;
                 terrain_data.SetHeights(0, 0, heights);
                 t = 20;
                 yield return null;
@@ -128,12 +129,12 @@ public class TerrainGenerator : MonoBehaviour
         terrain.Flush();
 
         // Add more variation
-        noiseMap = Noise.GenerateMap(terrain_data.heightmapWidth, terrain_data.heightmapHeight, seed + 2, noiseScale / 2, octaves + 1, persistance / 2, lacunarity, offset);
-        heights = terrain_data.GetHeights(0, 0, terrain_data.heightmapWidth, terrain_data.heightmapHeight);
+        noiseMap = Noise.GenerateMap(terrain_data.heightmapResolution, terrain_data.heightmapResolution, seed + 2, noiseScale / 2, octaves + 1, persistance / 2, lacunarity, offset);
+        heights = terrain_data.GetHeights(0, 0, terrain_data.heightmapResolution, terrain_data.heightmapResolution);
         t = 20;
 
-        for (int y = 0; y < terrain_data.heightmapHeight; y++) {
-            for (int x = 0; x < terrain_data.heightmapWidth; x++) {
+        for (int y = 0; y < terrain_data.heightmapResolution; y++) {
+            for (int x = 0; x < terrain_data.heightmapResolution; x++) {
                 float currentHeight = noiseMap[x, y];
 
                 if (currentHeight > 0.5f)
@@ -142,9 +143,8 @@ public class TerrainGenerator : MonoBehaviour
             t--;
             if (t <= 0)
             {
-                status = "2nd canyon pass " + y + "/" + terrain_data.heightmapHeight;
+                status = "2nd canyon pass " + y + "/" + terrain_data.heightmapResolution;
                 terrain_data.SetHeights(0, 0, heights);
-                PlacePlayerOnGround();
                 t = 20;
                 yield return null;
             }
@@ -159,12 +159,12 @@ public class TerrainGenerator : MonoBehaviour
     **/
     public IEnumerator GenerateErosion(TerrainData terrain_data)
     {
-        float[,] noiseMap = Noise.GenerateMap(terrain_data.heightmapWidth, terrain_data.heightmapHeight, seed + 3, noiseScale / 2, octaves + 1, persistance / 2, lacunarity * 4, offset);
-        float[,] heights = terrain_data.GetHeights(0, 0, terrain_data.heightmapWidth, terrain_data.heightmapHeight);
+        float[,] noiseMap = Noise.GenerateMap(terrain_data.heightmapResolution, terrain_data.heightmapResolution, seed + 3, noiseScale / 2, octaves + 1, persistance / 2, lacunarity * 4, offset);
+        float[,] heights = terrain_data.GetHeights(0, 0, terrain_data.heightmapResolution, terrain_data.heightmapResolution);
         int t = 20;
 
-        for (int y = 0; y < terrain_data.heightmapHeight; y++) {
-            for (int x = 0; x < terrain_data.heightmapWidth; x++) {
+        for (int y = 0; y < terrain_data.heightmapResolution; y++) {
+            for (int x = 0; x < terrain_data.heightmapResolution; x++) {
                 float currentHeight = noiseMap[x, y];
 
                 if (currentHeight > 0.0f && currentHeight < 0.4f)
@@ -173,9 +173,8 @@ public class TerrainGenerator : MonoBehaviour
             t--;
             if (t <= 0)
             {
-                status = "Adding erosion " + y + "/" + terrain_data.heightmapHeight;
+                status = "Adding erosion " + y + "/" + terrain_data.heightmapResolution;
                 terrain_data.SetHeights(0, 0, heights);
-                PlacePlayerOnGround();
                 t = 20;
                 yield return null;
             }
